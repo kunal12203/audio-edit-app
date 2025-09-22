@@ -49,7 +49,7 @@ export default function HomePage() {
     e.preventDefault();
     if (!prompt.trim() || isLoading) return;
     setIsLoading(true);
-    setStatus('pending');
+    setStatus('parsing_prompt'); // FIX 1: Align with the first backend step
     setFileUrl(null);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
@@ -205,7 +205,8 @@ const HowItWorks = () => (
 );
 
 const StatusDisplay = ({ currentStatus }: { currentStatus: string }) => {
-  const currentStepIndex = statusSteps.findIndex(s => s.key === currentStatus || s.key === 'pending');
+  // FIX 2: Simplified the logic to find the current step index
+  const currentStepIndex = statusSteps.findIndex(s => s.key === currentStatus);
   return (
     <div className="mt-12 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
       <h3 className="text-xl font-bold text-center mb-6">Your Mix is in Production...</h3>
