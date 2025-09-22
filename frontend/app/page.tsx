@@ -55,7 +55,10 @@ export default function HomePage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
       const response = await fetch(`${apiUrl}/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true' // Add this header to bypass ngrok page
+        },
         body: JSON.stringify({ prompt }),
       });
       if (!response.ok) throw new Error('Failed to start job');
@@ -205,7 +208,6 @@ const HowItWorks = () => (
 );
 
 const StatusDisplay = ({ currentStatus }: { currentStatus: string }) => {
-  // FIX 2: Simplified the logic to find the current step index
   const currentStepIndex = statusSteps.findIndex(s => s.key === currentStatus);
   return (
     <div className="mt-12 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
