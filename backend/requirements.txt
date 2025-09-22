@@ -1,7 +1,7 @@
-# In backend/requirements.txt
 fastapi
 uvicorn
 python-dotenv
 openai
 yt-dlp
 pydub
+google-api-python-client  # <-- ADD THIS LINE

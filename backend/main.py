@@ -11,6 +11,10 @@ from openai import OpenAI
 from yt_dlp import YoutubeDL
 from pydub import AudioSegment
 
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+
 # 2. Configure basic logging
 logging.basicConfig(
     level=logging.INFO,
@@ -34,24 +38,40 @@ def convert_time_to_ms(time_str: str):
     return (minutes * 60 + seconds) * 1000
 
 def search_youtube_for_url(song_name: str):
-    """Searches YouTube for a song and returns the URL of the first result."""
+    """Searches YouTube using the official API and returns the URL of the first result."""
     try:
-        logger.info(f"Searching YouTube for '{song_name}'...")
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'default_search': 'ytsearch1',
-            'quiet': True,
-        }
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"ytsearch:{song_name}", download=False)
-            if 'entries' in info and len(info['entries']) > 0:
-                video_url = info['entries'][0]['webpage_url']
-                logger.info(f"Found video URL: {video_url}")
-                return video_url
-    except Exception as e:
-        logger.error(f"An error occurred during YouTube search for '{song_name}'", exc_info=True)
-        return None
+        api_key = os.getenv("YOUTUBE_API_KEY")
+        if not api_key:
+            logger.error("YOUTUBE_API_KEY environment variable not set.")
+            return None
 
+        logger.info(f"Searching YouTube with API for '{song_name}'...")
+        youtube = build('youtube', 'v3', developerKey=api_key)
+
+        request = youtube.search().list(
+            q=song_name,
+            part='snippet',
+            type='video',
+            maxResults=1
+        )
+        response = request.execute()
+
+        if response['items']:
+            video_id = response['items'][0]['id']['videoId']
+            video_url = f"https://www.youtube.com/watch?v={video_id}"
+            logger.info(f"Found video URL via API: {video_url}")
+            return video_url
+        else:
+            logger.warning(f"No results found for '{song_name}' using API.")
+            return None
+
+    except HttpError as e:
+        logger.error(f"An HTTP error {e.resp.status} occurred: {e.content}", exc_info=True)
+        return None
+    except Exception as e:
+        logger.error(f"An error occurred during YouTube API search for '{song_name}'", exc_info=True)
+        return None
+    
 def download_audio_from_youtube(url: str, output_path="."):
     """Downloads a YouTube video as an MP3 audio file."""
     try:
