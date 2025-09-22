@@ -2,7 +2,7 @@ import os
 import json
 import uuid
 import logging
-import pydub # For version checking
+from importlib import metadata # To correctly check package version
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -157,8 +157,8 @@ def run_multi_song_processing(prompt: str, job_id: str):
             trimmed_clip = sound[start_ms:end_ms]
             processed_clips[clip_name] = trimmed_clip
 
-        # DEBUG: Check the installed version of pydub
-        logger.info(f"Using pydub version: {pydub.__version__}")
+        # DEBUG: Check the installed version of pydub correctly
+        logger.info(f"Using pydub version: {metadata.version('pydub')}")
 
         logger.info("Merging all processed clips with a crossfade...")
         CROSSFADE_DURATION_MS = 1500
