@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { Music, Wand2, Download, CheckCircle2, LoaderCircle, PenLine, Cloud, Combine } from 'lucide-react';
 
+// --- (Interfaces and static data remain the same) ---
 const statusSteps = [
   { key: 'parsing_prompt', title: 'Analyzing Prompt', icon: <PenLine /> },
   { key: 'searching_youtube', title: 'Searching Sources', icon: <Cloud /> },
@@ -12,6 +13,7 @@ const statusSteps = [
   { key: 'processing_audio', title: 'Mixing & Mastering', icon: <Combine /> },
 ];
 
+// --- MAIN PAGE COMPONENT ---
 export default function HomePage() {
   const [prompt, setPrompt] = useState<string>('');
   const [jobId, setJobId] = useState<string | null>(null);
@@ -20,14 +22,12 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const studioRef = useRef<HTMLDivElement>(null);
 
-  // This useEffect hook now contains the polling logic with the required header
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (jobId && isLoading) {
       interval = setInterval(async () => {
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-          // FINAL FIX: Add the ngrok header to the status check fetch call
           const response = await fetch(`${apiUrl}/status/${jobId}`, {
             headers: {
               'ngrok-skip-browser-warning': 'true'
@@ -63,7 +63,7 @@ export default function HomePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true' // This one was already fixed
+          'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({ prompt }),
       });
@@ -242,16 +242,56 @@ const StatusDisplay = ({ currentStatus }: { currentStatus: string }) => {
   );
 };
 
-const ResultDisplay = ({ fileUrl }: { fileUrl: string }) => (
+const ResultDisplay = ({ fileUrl }: { fileUrl: string }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${apiUrl}${fileUrl}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const filename = fileUrl.split('/').pop() || 'audiomix.mp3';
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Could not download the file.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-12 p-8 text-center bg-green-50 border-2 border-green-200 rounded-2xl">
         <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
         <h3 className="text-3xl font-bold text-green-800">Your Masterpiece is Ready!</h3>
         <p className="mt-2 text-green-700">The AI has finished composing your audio mix.</p>
-        <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}${fileUrl}`} download className="mt-6 inline-flex items-center gap-3 py-3 px-8 rounded-full bg-green-600 text-white font-bold text-lg shadow-lg hover:bg-green-700 transform hover:-translate-y-0.5 transition-all duration-300">
-            <Download /> Download MP3
-        </a>
+        <button 
+          onClick={handleDownload}
+          disabled={isDownloading}
+          className="mt-6 inline-flex items-center gap-3 py-3 px-8 rounded-full bg-green-600 text-white font-bold text-lg shadow-lg hover:bg-green-700 transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50"
+        >
+          {isDownloading ? (
+            <><LoaderCircle className="animate-spin" /> Downloading...</>
+          ) : (
+            <><Download /> Download MP3</>
+          )}
+        </button>
     </motion.div>
-);
+  );
+};
 
 const Footer = () => (
     <footer className="py-8 bg-slate-100 border-t border-slate-200">
