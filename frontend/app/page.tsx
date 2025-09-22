@@ -20,13 +20,19 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const studioRef = useRef<HTMLDivElement>(null);
 
+  // This useEffect hook now contains the polling logic with the required header
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (jobId && isLoading) {
       interval = setInterval(async () => {
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-          const response = await fetch(`${apiUrl}/status/${jobId}`);
+          // FINAL FIX: Add the ngrok header to the status check fetch call
+          const response = await fetch(`${apiUrl}/status/${jobId}`, {
+            headers: {
+              'ngrok-skip-browser-warning': 'true'
+            }
+          });
           if (!response.ok) throw new Error('Status check failed');
           const data = await response.json();
           setStatus(data.status);
@@ -49,7 +55,7 @@ export default function HomePage() {
     e.preventDefault();
     if (!prompt.trim() || isLoading) return;
     setIsLoading(true);
-    setStatus('parsing_prompt'); // FIX 1: Align with the first backend step
+    setStatus('parsing_prompt');
     setFileUrl(null);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
@@ -57,7 +63,7 @@ export default function HomePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true' // Add this header to bypass ngrok page
+          'ngrok-skip-browser-warning': 'true' // This one was already fixed
         },
         body: JSON.stringify({ prompt }),
       });
@@ -129,6 +135,8 @@ export default function HomePage() {
     </div>
   );
 }
+
+// --- SUB-COMPONENTS ---
 
 const Header = () => (
   <header className="fixed top-0 left-0 w-full p-4 bg-white backdrop-blur-lg border-b border-slate-200 z-50">
