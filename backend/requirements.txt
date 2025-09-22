@@ -1,3 +1,6 @@
+# In backend/requirements.txt
+fastapi
+uvicorn
 python-dotenv
 openai
 yt-dlp
