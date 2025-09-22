@@ -136,7 +136,7 @@ export default function HomePage() {
 // --- SUB-COMPONENTS with improved styling ---
 
 const Header = () => (
-  <header className="fixed top-0 left-0 w-full p-4 bg-white/80 backdrop-blur-lg border-b border-slate-200/80 z-50">
+  <header className="fixed top-0 left-0 w-full p-4 bg-white backdrop-blur-lg border-b border-slate-200 z-50">
     <div className="max-w-7xl mx-auto flex justify-between items-center">
       <a href="#" className="flex items-center gap-2">
         <Music className="text-indigo-600" />
