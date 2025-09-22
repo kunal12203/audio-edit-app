@@ -1,16 +1,16 @@
 import type { Metadata } from 'next';
-import { Poppins } from 'next/font/google'; // Import Poppins
+import { Poppins } from 'next/font/google';
 import './globals.css';
 
-// Configure the font
+// Configure the Poppins font
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400', '600', '700'],
+  weight: ['400', '600', '700', '800'],
 });
 
 export const metadata: Metadata = {
-  title: 'AI Audio Remixer',
-  description: 'Create audio mixes with AI',
+  title: 'AudioMix AI',
+  description: 'The future of audio is in your words.',
 };
 
 export default function RootLayout({
