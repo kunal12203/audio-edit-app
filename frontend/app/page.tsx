@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import { Music, Wand2, Download, CheckCircle2, LoaderCircle, PenLine, Cloud, Combine } from 'lucide-react';
 
-// --- (Interfaces and static data remain the same) ---
 const statusSteps = [
   { key: 'parsing_prompt', title: 'Analyzing Prompt', icon: <PenLine /> },
   { key: 'searching_youtube', title: 'Searching Sources', icon: <Cloud /> },
@@ -13,7 +12,6 @@ const statusSteps = [
   { key: 'processing_audio', title: 'Mixing & Mastering', icon: <Combine /> },
 ];
 
-// --- MAIN PAGE COMPONENT ---
 export default function HomePage() {
   const [prompt, setPrompt] = useState<string>('');
   const [jobId, setJobId] = useState<string | null>(null);
@@ -22,7 +20,6 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const studioRef = useRef<HTMLDivElement>(null);
 
-  // Polling logic remains the same
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (jobId && isLoading) {
@@ -71,13 +68,11 @@ export default function HomePage() {
   };
 
   return (
-    // Use a subtle background pattern
     <div className="min-h-screen w-full bg-slate-50 text-slate-800 font-sans">
       <Header />
       <Hero onCTAClick={() => studioRef.current?.scrollIntoView()} />
       <HowItWorks />
       
-      {/* --- The Creation Studio with improved spacing and looks --- */}
       <main id="studio" ref={studioRef} className="py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <motion.div 
@@ -95,8 +90,7 @@ export default function HomePage() {
             </p>
           </motion.div>
           
-          {/* Improved Form with better styling */}
-          <form onSubmit={handleSubmit} className="p-8 bg-white rounded-2xl shadow-xl border border-slate-200/80">
+          <form onSubmit={handleSubmit} className="p-8 bg-white rounded-2xl shadow-xl border border-slate-200"> {/* FIX: Removed /80 from border */}
             <div className="mb-6">
               <label htmlFor="prompt" className="text-lg font-semibold mb-3 block text-slate-700">Your Audio Vision</label>
               <div className="relative">
@@ -133,9 +127,8 @@ export default function HomePage() {
   );
 }
 
-// --- SUB-COMPONENTS with improved styling ---
-
 const Header = () => (
+  // FIX: Removed /80 opacity modifiers from bg and border for build compatibility
   <header className="fixed top-0 left-0 w-full p-4 bg-white backdrop-blur-lg border-b border-slate-200 z-50">
     <div className="max-w-7xl mx-auto flex justify-between items-center">
       <a href="#" className="flex items-center gap-2">
@@ -181,9 +174,8 @@ const Hero = ({ onCTAClick }: { onCTAClick: () => void }) => (
   </section>
 );
 
-// This section is now a grid and uses shadows instead of borders
 const HowItWorks = () => (
-  <section className="py-24 bg-slate-50 border-y border-slate-200/80">
+  <section className="py-24 bg-slate-50 border-y border-slate-200"> {/* FIX: Removed /80 from border */}
     <div className="max-w-6xl mx-auto px-4 text-center">
       <h2 className="text-4xl font-bold text-slate-900 mb-4">How It Works</h2>
       <p className="text-lg text-slate-600 mb-16">In three simple steps.</p>
@@ -213,11 +205,10 @@ const HowItWorks = () => (
   </section>
 );
 
-// Components for Status and Result Display remain the same, but will look better with proper CSS
 const StatusDisplay = ({ currentStatus }: { currentStatus: string }) => {
   const currentStepIndex = statusSteps.findIndex(s => s.key === currentStatus || s.key === 'pending');
   return (
-    <div className="mt-12 p-6 bg-white rounded-xl shadow-lg border border-slate-200/80">
+    <div className="mt-12 p-6 bg-white rounded-xl shadow-lg border border-slate-200"> {/* FIX: Removed /80 from border */}
       <h3 className="text-xl font-bold text-center mb-6">Your Mix is in Production...</h3>
       <div className="flex flex-col md:flex-row justify-between gap-4">
         {statusSteps.map((step, index) => {
@@ -253,7 +244,7 @@ const ResultDisplay = ({ fileUrl }: { fileUrl: string }) => (
 );
 
 const Footer = () => (
-    <footer className="py-8 bg-slate-100 border-t border-slate-200/80">
+    <footer className="py-8 bg-slate-100 border-t border-slate-200"> {/* FIX: Removed /80 from border */}
         <div className="max-w-7xl mx-auto px-4 text-center text-slate-500">
             <p>&copy; {new Date().getFullYear()} AudioMix AI. The future of sound is here.</p>
         </div>
