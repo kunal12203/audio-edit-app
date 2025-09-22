@@ -78,7 +78,7 @@ def download_audio_from_youtube(url: str, output_path="."):
         logger.info(f"Starting download from URL: {url}")
         output_template = os.path.join(output_path, '%(title)s.%(ext)s')
         ydl_opts = {
-            'format': 'bestaudio/best', 'outtmpl': output_template,
+            'format': 'm4a/bestaudio/best', 'outtmpl': output_template,
             'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}],
             'noplaylist': True,
         }
