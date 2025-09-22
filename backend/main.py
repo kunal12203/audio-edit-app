@@ -92,7 +92,7 @@ def parse_prompt_with_openai(prompt: str):
     """
     logger.info("Sending prompt to OpenAI for processing...")
     response = client.chat.completions.create(
-        model="gpt-4-turbo",
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
@@ -107,15 +107,10 @@ def parse_prompt_with_openai(prompt: str):
 app = FastAPI()
 jobs = {} # In-memory "database" to track job status
 
+# The corrected code
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3003",
-        "https://audio-edit-app-33j9-git-main-kunal12203s-projects.vercel.app",
-        "https://audio-edit-app-33j9-f9e6fypwj-kunal12203s-projects.vercel.app/",
-        "https://audio-edit-app-33j9.vercel.app/"    # <-- ADD YOUR VERCEL URL
-    ],
+    allow_origins=["*"],  # This allows all origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
