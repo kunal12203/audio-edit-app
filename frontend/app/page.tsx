@@ -90,7 +90,7 @@ export default function HomePage() {
             </p>
           </motion.div>
           
-          <form onSubmit={handleSubmit} className="p-8 bg-white rounded-2xl shadow-xl border border-slate-200"> {/* FIX: Removed opacity */}
+          <form onSubmit={handleSubmit} className="p-8 bg-white rounded-2xl shadow-xl border border-slate-200">
             <div className="mb-6">
               <label htmlFor="prompt" className="text-lg font-semibold mb-3 block text-slate-700">Your Audio Vision</label>
               <div className="relative">
@@ -128,7 +128,6 @@ export default function HomePage() {
 }
 
 const Header = () => (
-  // FIX: Removed opacity from bg-white and border-slate-200
   <header className="fixed top-0 left-0 w-full p-4 bg-white backdrop-blur-lg border-b border-slate-200 z-50">
     <div className="max-w-7xl mx-auto flex justify-between items-center">
       <a href="#" className="flex items-center gap-2">
@@ -175,7 +174,6 @@ const Hero = ({ onCTAClick }: { onCTAClick: () => void }) => (
 );
 
 const HowItWorks = () => (
-  // FIX: Removed opacity from border-slate-200
   <section className="py-24 bg-slate-50 border-y border-slate-200">
     <div className="max-w-6xl mx-auto px-4 text-center">
       <h2 className="text-4xl font-bold text-slate-900 mb-4">How It Works</h2>
@@ -209,7 +207,6 @@ const HowItWorks = () => (
 const StatusDisplay = ({ currentStatus }: { currentStatus: string }) => {
   const currentStepIndex = statusSteps.findIndex(s => s.key === currentStatus || s.key === 'pending');
   return (
-    // FIX: Removed opacity from border-slate-200
     <div className="mt-12 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
       <h3 className="text-xl font-bold text-center mb-6">Your Mix is in Production...</h3>
       <div className="flex flex-col md:flex-row justify-between gap-4">
@@ -246,7 +243,6 @@ const ResultDisplay = ({ fileUrl }: { fileUrl: string }) => (
 );
 
 const Footer = () => (
-    // FIX: Removed opacity from border-slate-200
     <footer className="py-8 bg-slate-100 border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4 text-center text-slate-500">
             <p>&copy; {new Date().getFullYear()} AudioMix AI. The future of sound is here.</p>
