@@ -109,7 +109,11 @@ jobs = {} # In-memory "database" to track job status
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3003"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3003",
+        "https://audio-edit-app-kunal12203.vercel.app"  # <-- ADD YOUR VERCEL URL
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
