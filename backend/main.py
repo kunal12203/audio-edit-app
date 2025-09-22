@@ -112,7 +112,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3003",
-        "https://audio-edit-app-kunal12203.vercel.app"  # <-- ADD YOUR VERCEL URL
+        "https://audio-edit-app-33j9-git-main-kunal12203s-projects.vercel.app",
+        "https://audio-edit-app-33j9-f9e6fypwj-kunal12203s-projects.vercel.app/",
+        "https://audio-edit-app-33j9.vercel.app/"    # <-- ADD YOUR VERCEL URL
     ],
     allow_credentials=True,
     allow_methods=["*"],
