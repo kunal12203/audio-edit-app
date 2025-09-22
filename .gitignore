@@ -1,0 +1,13 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+output/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Secrets
+.env
