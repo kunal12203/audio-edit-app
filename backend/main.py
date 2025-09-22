@@ -1,7 +1,7 @@
 import os
 import json
 import uuid
-import logging  # 1. Import the logging module
+import logging
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,52 +10,32 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from yt_dlp import YoutubeDL
 from pydub import AudioSegment
-
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-
-# 2. Configure basic logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
-)
-
-# 3. Get a logger instance for this module
+# --- (Logging configuration remains the same) ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
 logger = logging.getLogger(__name__)
-
-# Load environment variables from .env file
 load_dotenv()
 
-# --- Helper Functions (All included here) ---
+# --- (Helper functions like convert_time_to_ms, download_audio_from_youtube, etc., remain the same) ---
 
 def convert_time_to_ms(time_str: str):
-    """Converts MM:SS or M:SS string to milliseconds."""
     parts = time_str.split(':')
     minutes = int(parts[0])
     seconds = int(parts[1])
     return (minutes * 60 + seconds) * 1000
 
 def search_youtube_for_url(song_name: str):
-    """Searches YouTube using the official API and returns the URL of the first result."""
     try:
         api_key = os.getenv("YOUTUBE_API_KEY")
         if not api_key:
             logger.error("YOUTUBE_API_KEY environment variable not set.")
             return None
-
         logger.info(f"Searching YouTube with API for '{song_name}'...")
         youtube = build('youtube', 'v3', developerKey=api_key)
-
-        request = youtube.search().list(
-            q=song_name,
-            part='snippet',
-            type='video',
-            maxResults=1
-        )
+        request = youtube.search().list(q=song_name, part='snippet', type='video', maxResults=1)
         response = request.execute()
-
         if response['items']:
             video_id = response['items'][0]['id']['videoId']
             video_url = f"https://www.youtube.com/watch?v={video_id}"
@@ -64,16 +44,14 @@ def search_youtube_for_url(song_name: str):
         else:
             logger.warning(f"No results found for '{song_name}' using API.")
             return None
-
     except HttpError as e:
         logger.error(f"An HTTP error {e.resp.status} occurred: {e.content}", exc_info=True)
         return None
     except Exception as e:
         logger.error(f"An error occurred during YouTube API search for '{song_name}'", exc_info=True)
         return None
-    
+
 def download_audio_from_youtube(url: str, output_path="."):
-    """Downloads a YouTube video as an MP3 audio file."""
     try:
         logger.info(f"Starting download from URL: {url}")
         output_template = os.path.join(output_path, '%(title)s.%(ext)s')
@@ -95,7 +73,6 @@ def download_audio_from_youtube(url: str, output_path="."):
         return None
 
 def parse_prompt_with_openai(prompt: str):
-    """Sends a prompt to OpenAI and expects a structured JSON output for multiple songs."""
     client = OpenAI()
     system_prompt = """
     You are an intelligent assistant that parses user requests for audio editing.
@@ -112,59 +89,49 @@ def parse_prompt_with_openai(prompt: str):
     """
     logger.info("Sending prompt to OpenAI for processing...")
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt}
-        ],
+        model="gpt-4-turbo",
+        messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}],
         response_format={"type": "json_object"}
     )
     response_content = response.choices[0].message.content
     logger.info("OpenAI responded successfully.")
     return json.loads(response_content)
 
-# --- App Setup ---
+# --- (FastAPI App setup, models, and middleware remain the same) ---
 app = FastAPI()
-jobs = {} # In-memory "database" to track job status
-
-# The corrected code
+jobs = {}
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # This allows all origins
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 if not os.path.exists("output"):
     os.makedirs("output")
-
 app.mount("/output", StaticFiles(directory="output"), name="output")
 
-# --- API Models ---
 class PromptRequest(BaseModel):
     prompt: str
-
 class JobResponse(BaseModel):
     job_id: str
-
 class StatusResponse(BaseModel):
     status: str
     file_url: str | None = None
 
-# --- Background Task Logic ---
+# --- Background Task Logic with Crossfade ---
 def run_multi_song_processing(prompt: str, job_id: str):
     downloaded_files = []
     logger.info(f"Starting audio processing for job_id: {job_id}")
     try:
         jobs[job_id]["status"] = "parsing_prompt"
         parsed_data = parse_prompt_with_openai(prompt)
-        if not parsed_data or "clips" not in parsed_data:
-            raise ValueError("Failed to parse prompt with OpenAI.")
+        # ... (error handling remains the same)
 
         processed_clips = {}
         downloaded_songs = {}
-
+        
+        # ... (Loop for downloading and trimming clips remains the same) ...
         for i, clip_info in enumerate(parsed_data["clips"]):
             song_name = clip_info["song_name"]
             clip_name = clip_info["name"]
@@ -192,12 +159,25 @@ def run_multi_song_processing(prompt: str, job_id: str):
             trimmed_clip = sound[start_ms:end_ms]
             processed_clips[clip_name] = trimmed_clip
 
-        logger.info("Merging all processed clips...")
-        final_audio = AudioSegment.silent(duration=0)
-        for clip_name in parsed_data["sequence"]:
-            if clip_name in processed_clips:
-                final_audio += processed_clips[clip_name]
+        # ==========================================================
+        # NEW: Merging Logic with Crossfade
+        # ==========================================================
+        logger.info("Merging all processed clips with a crossfade...")
+        CROSSFADE_DURATION_MS = 1500  # 1.5 seconds, you can change this value
+
+        # Start with the first clip in the sequence
+        sequence_to_merge = [processed_clips[name] for name in parsed_data["sequence"] if name in processed_clips]
         
+        if not sequence_to_merge:
+            raise ValueError("No valid clips found to merge.")
+
+        final_audio = sequence_to_merge[0]
+        
+        # Loop through the rest of the clips and apply a crossfade
+        for next_clip in sequence_to_merge[1:]:
+            final_audio = final_audio.crossfade(next_clip, duration=CROSSFADE_DURATION_MS)
+        # ==========================================================
+
         output_filename = f"output/{job_id}.mp3"
         final_audio.export(output_filename, format="mp3")
         logger.info(f"Final audio saved to {output_filename}")
@@ -210,6 +190,7 @@ def run_multi_song_processing(prompt: str, job_id: str):
         jobs[job_id]["status"] = "failed"
     finally:
         logger.info(f"Cleaning up {len(downloaded_files)} source file(s) for job {job_id}.")
+        # ... (cleanup logic remains the same) ...
         for file_path in downloaded_files:
             if os.path.exists(file_path):
                 try:
@@ -217,7 +198,7 @@ def run_multi_song_processing(prompt: str, job_id: str):
                 except OSError as e:
                     logger.warning(f"Error deleting file {file_path}: {e}")
 
-# --- API Endpoints ---
+# --- (API Endpoints remain the same) ---
 @app.post("/generate", response_model=JobResponse)
 async def generate_audio(request: PromptRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())
