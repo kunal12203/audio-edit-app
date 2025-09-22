@@ -2,7 +2,7 @@ import os
 import json
 import uuid
 import logging
-from importlib import metadata # To correctly check package version
+from importlib import metadata
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -156,10 +156,8 @@ def run_multi_song_processing(prompt: str, job_id: str):
             end_ms = convert_time_to_ms(clip_info['end'])
             trimmed_clip = sound[start_ms:end_ms]
             processed_clips[clip_name] = trimmed_clip
-
-        # DEBUG: Check the installed version of pydub correctly
+        
         logger.info(f"Using pydub version: {metadata.version('pydub')}")
-
         logger.info("Merging all processed clips with a crossfade...")
         CROSSFADE_DURATION_MS = 1500
 
@@ -169,7 +167,8 @@ def run_multi_song_processing(prompt: str, job_id: str):
 
         final_audio = sequence_to_merge[0]
         for next_clip in sequence_to_merge[1:]:
-            final_audio = final_audio.crossfade(next_clip, duration=CROSSFADE_DURATION_MS)
+            # THIS IS THE CORRECTED LINE
+            final_audio = final_audio.append(next_clip, crossfade=CROSSFADE_DURATION_MS)
 
         output_filename = f"output/{job_id}.mp3"
         final_audio.export(output_filename, format="mp3")
