@@ -14,12 +14,10 @@ from pydub import AudioSegment
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# Configure basic logging
+# --- (Logging configuration and helper functions remain the same) ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 load_dotenv()
-
-# --- Helper Functions ---
 
 def convert_time_to_ms(time_str: str):
     parts = time_str.split(':')
@@ -42,15 +40,11 @@ def search_youtube_for_url(song_name: str):
             video_url = f"https://www.youtube.com/watch?v={video_id}"
             logger.info(f"Found video URL via API: {video_url}")
             return video_url
-        else:
-            logger.warning(f"No results found for '{song_name}' using API.")
-            return None
     except HttpError as e:
         logger.error(f"An HTTP error {e.resp.status} occurred: {e.content}", exc_info=True)
-        return None
     except Exception as e:
         logger.error(f"An error occurred during YouTube API search for '{song_name}'", exc_info=True)
-        return None
+    return None
 
 def download_audio_from_youtube(url: str, output_path="."):
     try:
@@ -71,7 +65,7 @@ def download_audio_from_youtube(url: str, output_path="."):
                 return mp3_filepath
     except Exception as e:
         logger.error(f"An error occurred during download from {url}", exc_info=True)
-        return None
+    return None
 
 def parse_prompt_with_openai(prompt: str):
     client = OpenAI()
@@ -98,46 +92,31 @@ def parse_prompt_with_openai(prompt: str):
     logger.info("OpenAI responded successfully.")
     return json.loads(response_content)
 
-# --- FastAPI App setup ---
+# --- (FastAPI App setup, models, and middleware remain the same) ---
 app = FastAPI()
 jobs = {}
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-if not os.path.exists("output"):
-    os.makedirs("output")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+if not os.path.exists("output"): os.makedirs("output")
 app.mount("/output", StaticFiles(directory="output"), name="output")
 
-class PromptRequest(BaseModel):
-    prompt: str
-class JobResponse(BaseModel):
-    job_id: str
-class StatusResponse(BaseModel):
-    status: str
-    file_url: str | None = None
+class PromptRequest(BaseModel): prompt: str
+class JobResponse(BaseModel): job_id: str
+class StatusResponse(BaseModel): status: str; file_url: str | None = None
 
-# --- Background Task Logic ---
+# --- Background Task Logic with DJ-Style EQ Fade ---
 def run_multi_song_processing(prompt: str, job_id: str):
     downloaded_files = []
     logger.info(f"Starting audio processing for job_id: {job_id}")
     try:
         jobs[job_id]["status"] = "parsing_prompt"
         parsed_data = parse_prompt_with_openai(prompt)
-        if not parsed_data or "clips" not in parsed_data:
-            raise ValueError("Failed to parse prompt with OpenAI.")
-
+        # ... (Error handling and download/trim loop remain the same) ...
         processed_clips = {}
         downloaded_songs = {}
-        
         for i, clip_info in enumerate(parsed_data["clips"]):
             song_name = clip_info["song_name"]
             clip_name = clip_info["name"]
             jobs[job_id]["status"] = "searching_youtube"
-            
             if song_name in downloaded_songs:
                 audio_file_path = downloaded_songs[song_name]
             else:
@@ -148,28 +127,51 @@ def run_multi_song_processing(prompt: str, job_id: str):
                 if not audio_file_path: raise ValueError(f"Failed to download '{song_name}'")
                 downloaded_songs[song_name] = audio_file_path
                 downloaded_files.append(audio_file_path)
-
             jobs[job_id]["status"] = "processing_audio"
-            logger.info(f"Trimming clip '{clip_name}' from '{song_name}'")
             sound = AudioSegment.from_mp3(audio_file_path)
             start_ms = convert_time_to_ms(clip_info['start'])
             end_ms = convert_time_to_ms(clip_info['end'])
-            trimmed_clip = sound[start_ms:end_ms]
-            processed_clips[clip_name] = trimmed_clip
+            processed_clips[clip_name] = sound[start_ms:end_ms]
         
         logger.info(f"Using pydub version: {metadata.version('pydub')}")
-        logger.info("Merging all processed clips with a crossfade...")
-        CROSSFADE_DURATION_MS = 1500
+        
+        # ==========================================================
+        # NEW: Merging Logic with DJ-Style EQ Transition
+        # ==========================================================
+        logger.info("Merging clips with a DJ-style EQ transition...")
+        TRANSITION_DURATION_MS = 2000  # 2 seconds, you can change this
+        BASS_CUTOFF_HZ = 150 # Frequencies below this are considered "bass"
 
         sequence_to_merge = [processed_clips[name] for name in parsed_data["sequence"] if name in processed_clips]
         if not sequence_to_merge:
             raise ValueError("No valid clips found to merge.")
 
+        # Start with the first clip
         final_audio = sequence_to_merge[0]
-        for next_clip in sequence_to_merge[1:]:
-            # THIS IS THE CORRECTED LINE
-            final_audio = final_audio.append(next_clip, crossfade=CROSSFADE_DURATION_MS)
 
+        # Loop through the rest of the clips to create transitions
+        for i in range(len(sequence_to_merge) - 1):
+            clip1 = final_audio
+            clip2 = sequence_to_merge[i+1]
+
+            # 1. Isolate the end of the first clip
+            clip1_end = clip1[-TRANSITION_DURATION_MS:]
+            
+            # 2. Remove the bass from it and fade its volume out
+            clip1_end_no_bass = clip1_end.high_pass_filter(BASS_CUTOFF_HZ).fade_out(TRANSITION_DURATION_MS)
+            
+            # 3. Take the beginning of the second clip and fade its volume in
+            clip2_start_faded = clip2[:TRANSITION_DURATION_MS].fade_in(TRANSITION_DURATION_MS)
+
+            # 4. Overlay the two transition parts
+            transition = clip1_end_no_bass.overlay(clip2_start_faded)
+            
+            # 5. Stitch it all together
+            main_part_of_clip1 = clip1[:-TRANSITION_DURATION_MS]
+            main_part_of_clip2 = clip2[TRANSITION_DURATION_MS:]
+            final_audio = main_part_of_clip1 + transition + main_part_of_clip2
+        # ==========================================================
+        
         output_filename = f"output/{job_id}.mp3"
         final_audio.export(output_filename, format="mp3")
         logger.info(f"Final audio saved to {output_filename}")
@@ -183,12 +185,10 @@ def run_multi_song_processing(prompt: str, job_id: str):
         logger.info(f"Cleaning up {len(downloaded_files)} source file(s) for job {job_id}.")
         for file_path in downloaded_files:
             if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except OSError as e:
-                    logger.warning(f"Error deleting file {file_path}: {e}")
+                try: os.remove(file_path)
+                except OSError as e: logger.warning(f"Error deleting file {file_path}: {e}")
 
-# --- API Endpoints ---
+# --- (API Endpoints remain the same) ---
 @app.post("/generate", response_model=JobResponse)
 async def generate_audio(request: PromptRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())
@@ -200,8 +200,7 @@ async def generate_audio(request: PromptRequest, background_tasks: BackgroundTas
 @app.get("/status/{job_id}", response_model=StatusResponse)
 async def get_status(job_id: str):
     job = jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    if not job: raise HTTPException(status_code=404, detail="Job not found")
     return job
 
 @app.get("/")
