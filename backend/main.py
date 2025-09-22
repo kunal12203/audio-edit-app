@@ -2,6 +2,7 @@ import os
 import json
 import uuid
 import logging
+import pydub # For version checking
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -13,12 +14,12 @@ from pydub import AudioSegment
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# --- (Logging configuration remains the same) ---
+# Configure basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-# --- (Helper functions like convert_time_to_ms, download_audio_from_youtube, etc., remain the same) ---
+# --- Helper Functions ---
 
 def convert_time_to_ms(time_str: str):
     parts = time_str.split(':')
@@ -97,7 +98,7 @@ def parse_prompt_with_openai(prompt: str):
     logger.info("OpenAI responded successfully.")
     return json.loads(response_content)
 
-# --- (FastAPI App setup, models, and middleware remain the same) ---
+# --- FastAPI App setup ---
 app = FastAPI()
 jobs = {}
 app.add_middleware(
@@ -119,19 +120,19 @@ class StatusResponse(BaseModel):
     status: str
     file_url: str | None = None
 
-# --- Background Task Logic with Crossfade ---
+# --- Background Task Logic ---
 def run_multi_song_processing(prompt: str, job_id: str):
     downloaded_files = []
     logger.info(f"Starting audio processing for job_id: {job_id}")
     try:
         jobs[job_id]["status"] = "parsing_prompt"
         parsed_data = parse_prompt_with_openai(prompt)
-        # ... (error handling remains the same)
+        if not parsed_data or "clips" not in parsed_data:
+            raise ValueError("Failed to parse prompt with OpenAI.")
 
         processed_clips = {}
         downloaded_songs = {}
         
-        # ... (Loop for downloading and trimming clips remains the same) ...
         for i, clip_info in enumerate(parsed_data["clips"]):
             song_name = clip_info["song_name"]
             clip_name = clip_info["name"]
@@ -139,15 +140,12 @@ def run_multi_song_processing(prompt: str, job_id: str):
             
             if song_name in downloaded_songs:
                 audio_file_path = downloaded_songs[song_name]
-                logger.info(f"Using cached audio for '{song_name}'")
             else:
                 song_url = search_youtube_for_url(song_name)
                 if not song_url: raise ValueError(f"Could not find '{song_name}'")
-                
                 jobs[job_id]["status"] = "downloading_audio"
                 audio_file_path = download_audio_from_youtube(song_url, output_path="output")
                 if not audio_file_path: raise ValueError(f"Failed to download '{song_name}'")
-                
                 downloaded_songs[song_name] = audio_file_path
                 downloaded_files.append(audio_file_path)
 
@@ -159,29 +157,23 @@ def run_multi_song_processing(prompt: str, job_id: str):
             trimmed_clip = sound[start_ms:end_ms]
             processed_clips[clip_name] = trimmed_clip
 
-        # ==========================================================
-        # NEW: Merging Logic with Crossfade
-        # ==========================================================
-        logger.info("Merging all processed clips with a crossfade...")
-        CROSSFADE_DURATION_MS = 1500  # 1.5 seconds, you can change this value
+        # DEBUG: Check the installed version of pydub
+        logger.info(f"Using pydub version: {pydub.__version__}")
 
-        # Start with the first clip in the sequence
+        logger.info("Merging all processed clips with a crossfade...")
+        CROSSFADE_DURATION_MS = 1500
+
         sequence_to_merge = [processed_clips[name] for name in parsed_data["sequence"] if name in processed_clips]
-        
         if not sequence_to_merge:
             raise ValueError("No valid clips found to merge.")
 
         final_audio = sequence_to_merge[0]
-        
-        # Loop through the rest of the clips and apply a crossfade
         for next_clip in sequence_to_merge[1:]:
             final_audio = final_audio.crossfade(next_clip, duration=CROSSFADE_DURATION_MS)
-        # ==========================================================
 
         output_filename = f"output/{job_id}.mp3"
         final_audio.export(output_filename, format="mp3")
         logger.info(f"Final audio saved to {output_filename}")
-
         jobs[job_id]["status"] = "complete"
         jobs[job_id]["file_url"] = f"/{output_filename}"
 
@@ -190,7 +182,6 @@ def run_multi_song_processing(prompt: str, job_id: str):
         jobs[job_id]["status"] = "failed"
     finally:
         logger.info(f"Cleaning up {len(downloaded_files)} source file(s) for job {job_id}.")
-        # ... (cleanup logic remains the same) ...
         for file_path in downloaded_files:
             if os.path.exists(file_path):
                 try:
@@ -198,7 +189,7 @@ def run_multi_song_processing(prompt: str, job_id: str):
                 except OSError as e:
                     logger.warning(f"Error deleting file {file_path}: {e}")
 
-# --- (API Endpoints remain the same) ---
+# --- API Endpoints ---
 @app.post("/generate", response_model=JobResponse)
 async def generate_audio(request: PromptRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())
@@ -213,3 +204,7 @@ async def get_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+@app.get("/")
+def read_root():
+    return {"message": "AudioMix AI Backend is running"}
